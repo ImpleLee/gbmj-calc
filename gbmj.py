@@ -5,14 +5,14 @@ from dataclasses import dataclass
 牌 = tuple[int, str]
 面子 = tuple[tuple[int, int, int], str]
 
-class Hand(Counter[牌 | 面子, int]):
+class Hand(Counter[牌 | 面子]):
   def __repr__(self) -> str:
     ret = ''
     for (tiles, suit), count in self.items():
       if isinstance(tiles, int):
         continue
       tiles = sorted(tiles)
-      ret += (''.join(str(x) for x in tiles) + suit.upper()) * count
+      ret += (''.join(str(x) for x in tiles) + suit.lower()) * count
     suit_to_pieces = defaultdict(list)
     for (tiles, suit), count in self.items():
       if isinstance(tiles, int):
@@ -22,6 +22,9 @@ class Hand(Counter[牌 | 面子, int]):
       if suit in suit_to_pieces:
         ret += ''.join(str(x) for x in sorted(suit_to_pieces[suit])) + suit
     return ret
+
+# required 牌, count 面子, count 雀头
+Future = tuple[Hand, int, int]
 
 ALL_牌: Final = Hand({(i, c): 4 for i in range(1, 10) for c in 'pms'}) + Hand({(i, 'z'): 4 for i in range(1, 8)})
 
@@ -54,7 +57,7 @@ def melt_down(hand: Hand) -> Hand:
 def count_pieces(hand: Hand) -> int:
   return sum(count if isinstance(tiles, int) else 3 * count for (tiles, _), count in hand.items())
 
-def 三顺(center: int, step: int, order: str) -> Hand:
+def 三顺(center: int, step: int, order: str) -> Future:
   assert len(order) == 3
   assert all(c in 'pms' for c in order)
   hand = Hand()
@@ -64,7 +67,7 @@ def 三顺(center: int, step: int, order: str) -> Hand:
     hand[(centering(center + i), c)] += 1
   return hand, 1, 1
 
-def 三刻(center: int, step: int, order: str) -> Hand:
+def 三刻(center: int, step: int, order: str) -> Future:
   assert len(order) == 3
   assert all(c in 'pms' for c in order)
   hand = Hand()
@@ -74,15 +77,15 @@ def 三刻(center: int, step: int, order: str) -> Hand:
     hand[(centering(center + i), c)] += 1
   return hand, 1, 1
 
-def 刻子(hand: Hand) -> Hand:
+def 刻子(hand: Hand) -> Future:
   return Hand(((tile, tile, tile), color) for tile, color in hand), 4 - len(hand), 1
 
-def 组合龙(order: str) -> Hand:
+def 组合龙(order: str) -> Future:
   assert len(order) == 3
   assert 'm' in order and 'p' in order and 's' in order
   return Hand(zip(range(1, 10), order * 3)), 1, 1
 
-def 双龙会(order: str) -> Hand:
+def 双龙会(order: str) -> Future:
   assert len(order) == 3
   assert all(c in 'pms' for c in order)
   hand = Hand()
@@ -92,12 +95,12 @@ def 双龙会(order: str) -> Hand:
     hand[((7, 8, 9), body)] += 1
   return hand, 0, 0
 
-def 全不靠(order: str) -> Hand:
+def 全不靠(order: str) -> Future:
   assert len(order) == 3
   assert 'm' in order and 'p' in order and 's' in order
   return Hand(list(zip(range(1, 10), order * 3)) + [(i, 'z') for i in range(1, 8)]), 0, 0
 
-def 十三幺(which: int) -> Hand:
+def 十三幺(which: int) -> Future:
   assert which in range(0, 13)
   pai = [(i, color) for i in (1, 9) for color in 'pms'] + [(i, 'z') for i in range(1, 8)]
   result = Hand(pai)
@@ -277,7 +280,7 @@ def all_usable_役():
   # 五门齐 无番和
   # 三暗刻 七对
   # 碰碰和
-  return ret
+  return tuple(ret)
 
 ALL_USABLE_役: Final = all_usable_役()
 
@@ -379,6 +382,11 @@ class GameTree:
       else:
         del new_next[x2]
     return GameTree(self.hand, new_next)
+
+  def collect_leafs(self) -> set:
+    if isinstance(self.next, list):
+      return set(self.next)
+    return set().union(*(f.collect_leafs() for branch in self.next.values() for f in branch.values()))
 
 def get_futures(hand: Hand, usable_役=ALL_USABLE_役) -> GameTree:
   assert count_pieces(hand) == 14
