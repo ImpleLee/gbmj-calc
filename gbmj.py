@@ -212,10 +212,11 @@ def count_pieces_for_1面子_1雀头(hand: Hand):
   return pieces, needable
 
 def dist_from_hand(hand: Hand, target: Hand, count_面子: int, count_雀头: int):
-  exposedTiles, hiddenTiles = split(hand)
-  needed_tiles = melt_down(target - exposedTiles)
-  needed_in_target = needed_tiles - hiddenTiles
-  other_tiles = hand - target - needed_tiles
+  exposed_hand, hidden_hand = split(hand)
+  exposed_target, hidden_target = split(target)
+  needed_tiles = melt_down(exposed_target - exposed_hand)
+  needed_in_target = needed_tiles + hidden_target - hidden_hand
+  other_tiles = hand - exposed_target - needed_tiles - hidden_target
   if count_面子 == count_雀头 == 1:
     dist, rem_to_need = count_pieces_for_1面子_1雀头(other_tiles)
   else:
