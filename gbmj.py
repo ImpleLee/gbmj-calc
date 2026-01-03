@@ -7,6 +7,7 @@ from functools import cache
 面子 = tuple[tuple[int, int, int], str]
 
 class Hand(Counter[牌 | 面子]):
+  HASH_DICT = dict()
   def __repr__(self) -> str:
     ret = ''
     for (tiles, suit), count in self.items():
@@ -24,7 +25,10 @@ class Hand(Counter[牌 | 面子]):
         ret += ''.join(str(x) for x in sorted(suit_to_pieces[suit])) + suit.lower()
     return ret
   def __hash__(self) -> int:
-    return hash(str(self))
+    my_id = id(self)
+    if my_id not in Hand.HASH_DICT:
+      Hand.HASH_DICT[my_id] = hash(str(self))
+    return Hand.HASH_DICT[my_id]
 
 # required 牌, count 面子, count 雀头
 Future = tuple[Hand, int, int]
