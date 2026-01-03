@@ -1,6 +1,7 @@
 from collections import Counter, defaultdict
 from typing import Final
 from dataclasses import dataclass
+from functools import cache
 
 牌 = tuple[int, str]
 面子 = tuple[tuple[int, int, int], str]
@@ -12,7 +13,7 @@ class Hand(Counter[牌 | 面子]):
       if isinstance(tiles, int):
         continue
       tiles = sorted(tiles)
-      ret += (''.join(str(x) for x in tiles) + suit.lower()) * count
+      ret += (''.join(str(x) for x in tiles) + suit.upper()) * count
     suit_to_pieces = defaultdict(list)
     for (tiles, suit), count in self.items():
       if isinstance(tiles, int):
@@ -20,8 +21,10 @@ class Hand(Counter[牌 | 面子]):
           suit_to_pieces[suit].append(tiles)
     for suit in 'pmsz':
       if suit in suit_to_pieces:
-        ret += ''.join(str(x) for x in sorted(suit_to_pieces[suit])) + suit
+        ret += ''.join(str(x) for x in sorted(suit_to_pieces[suit])) + suit.lower()
     return ret
+  def __hash__(self) -> int:
+    return hash(str(self))
 
 # required 牌, count 面子, count 雀头
 Future = tuple[Hand, int, int]
@@ -53,6 +56,15 @@ def melt_down(hand: Hand) -> Hand:
       for tile in tiles:
         result[(tile, suit)] += count
   return result
+
+def split(hand: Hand) -> tuple[Hand, Hand]:
+  exposedTiles, hiddenTiles = Hand(), Hand()
+  for (tiles, suit), count in hand.items():
+    if isinstance(tiles, tuple):
+      exposedTiles[(tiles, suit)] += count
+    else:
+      hiddenTiles[(tiles, suit)] += count
+  return exposedTiles, hiddenTiles
 
 def count_pieces(hand: Hand) -> int:
   return sum(count if isinstance(tiles, int) else 3 * count for (tiles, _), count in hand.items())
@@ -200,8 +212,9 @@ def count_pieces_for_1面子_1雀头(hand: Hand):
   return pieces, needable
 
 def dist_from_hand(hand: Hand, target: Hand, count_面子: int, count_雀头: int):
-  needed_tiles = melt_down(target - hand)
-  needed_in_target = needed_tiles - hand
+  exposedTiles, hiddenTiles = split(hand)
+  needed_tiles = melt_down(target - exposedTiles)
+  needed_in_target = needed_tiles - hiddenTiles
   other_tiles = hand - target - needed_tiles
   if count_面子 == count_雀头 == 1:
     dist, rem_to_need = count_pieces_for_1面子_1雀头(other_tiles)
@@ -296,19 +309,20 @@ def possibilities(hand: Hand, usable_役=ALL_USABLE_役):
   min_dist = min(i for i, x in enumerate(dist) if x)
   return dist[:min_dist + 2]
 
+@cache
 def which_to_remove(hand: Hand, usable_役=ALL_USABLE_役):
   dist = possibilities(hand, usable_役)
-  def dist_to_rem(dist):
+  def dist_to_rem(dist, this_dist):
     rem = defaultdict(lambda: defaultdict(list))
     for rn, 役 in dist:
       for x, n in rn.items():
         for y in n:
           rem[x][y].append(役)
-        if not n:
+        if this_dist == 0:
           rem[x][()].append(役)
-    rem = {x: {y: z for y, z in y.items()} for x, y in rem.items()}
+    rem = {x: {y: tuple(z) for y, z in y.items()} for x, y in rem.items()}
     return rem
-  return [dist_to_rem(d) for d in dist]
+  return [dist_to_rem(d, i) for i, d in enumerate(dist)]
 
 def simple_count(hand: Hand):
   rem = which_to_remove(hand)
@@ -325,12 +339,12 @@ def count_with_others(hand: Hand, remain: Hand):
 @dataclass
 class GameTree:
   hand: Hand
-  next: dict[牌, dict[牌, 'GameTree']] | list
+  next: dict[牌, dict[牌, 'GameTree']] | tuple
 
   def choose_with_remain(self, remain: Hand):
-    if isinstance(self.next, list):
-      return self.next
-    return {x: branch_p(branch, remain) for x, branch in self.next.items()}
+    if isinstance(self.next, dict):
+      return {x: branch_p(branch, remain) for x, branch in self.next.items()}
+    return self.next
 
   def prune(self) -> 'GameTree':
     if not isinstance(self.next, dict):
@@ -384,9 +398,9 @@ class GameTree:
     return GameTree(self.hand, new_next)
 
   def collect_leafs(self) -> set:
-    if isinstance(self.next, list):
-      return set(self.next)
-    return set().union(*(f.collect_leafs() for branch in self.next.values() for f in branch.values()))
+    if isinstance(self.next, dict):
+      return set().union(*(f.collect_leafs() for branch in self.next.values() for f in branch.values()))
+    return set(self.next)
 
 def get_futures(hand: Hand, usable_役=ALL_USABLE_役) -> GameTree:
   assert count_pieces(hand) == 14
