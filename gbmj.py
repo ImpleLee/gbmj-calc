@@ -239,57 +239,57 @@ def all_usable_役():
   orders = ['smp', 'spm', 'mps', 'msp', 'psm', 'pms']
   for i in range(1, 10):
     # 三同刻
-    ret.append(('三刻', i, 0, 'smp'))
+    ret.append(三刻(i, 0, 'smp'))
   for i in range(2, 9):
     # 三色三同顺
-    ret.append(('三顺', i, 0, 'smp'))
+    ret.append(三顺(i, 0, 'smp'))
     for color in 'smp':
       # 一色三同顺
-      ret.append(('三顺', i, 0, color * 3))
+      ret.append(三顺(i, 0, color * 3))
       # 一色三节高
-      ret.append(('三刻', i, 1, color * 3))
+      ret.append(三刻(i, 1, color * 3))
     for order in orders:
       # 三色三节高
-      ret.append(('三刻', i, 1, order))
+      ret.append(三刻(i, 1, order))
   for i in range(3, 8):
     for order in orders:
       # 三色三步高
-      ret.append(('三顺', i, 1, order))
+      ret.append(三顺(i, 1, order))
     for color in 'smp':
       # 一色三步高
-      ret.append(('三顺', i, 1, color * 3))
+      ret.append(三顺(i, 1, color * 3))
   for i in range(4, 7):
     for color in 'smp':
       # 一色三连环
-      ret.append(('三顺', i, 2, color * 3))
+      ret.append(三顺(i, 2, color * 3))
   for order in orders:
     # 花龙
-    ret.append(('三顺', 5, 3, order))
+    ret.append(三顺(5, 3, order))
   for color in 'smp':
     # 清龙
-    ret.append(('三顺', 5, 3, color * 3))
+    ret.append(三顺(5, 3, color * 3))
   for order in orders:
     # 组合龙
-    ret.append(('组合龙', order))
+    ret.append(组合龙(order))
   for color in 'smp':
     # 一色双龙会 < 必定是清一色，可能可以丢弃？
     # ret.append(('双龙会', color * 3))
     # 三色双龙会
-    ret.append(('双龙会', color + 'smp'.replace(color, '')))
+    ret.append(双龙会(color + 'smp'.replace(color, '')))
   for num in range(1, 5):
     # 三风刻
-    ret.append(('刻子', Hand((n, 'z') for n in range(1, 5) if n != num)))
+    ret.append(刻子(Hand((n, 'z') for n in range(1, 5) if n != num)))
   for num in range(5, 8):
     # 双箭刻
-    # ret.append(('刻子', Hand((n, 'z') for n in range(5, 8) if n != num)))
+    # ret.append(刻子(Hand((n, 'z') for n in range(5, 8) if n != num)))
     # 无法处理需要两个面子的情况
     pass
   # 全带幺 全带五
   # 混一色 清一色 推不倒 大于五 小于五 全大 全中 全小 字一色
   for order in orders:
-    ret.append(('全不靠', order))
+    ret.append(全不靠(order))
   for i in range(13):
-    ret.append(('十三幺', i))
+    ret.append(十三幺(i))
   # 五门齐 无番和
   # 三暗刻 七对
   # 碰碰和
@@ -299,13 +299,10 @@ ALL_USABLE_役: Final = all_usable_役()
 
 def possibilities(hand: Hand, usable_役=ALL_USABLE_役):
   dist = [[] for _ in range(14)]
-  def update(役, *args):
-    func = globals()[役]
-    d, rn = dist_from_hand(hand, *func(*args))
-    d = min(d, 13)
-    dist[d].append((rn, (役, *args)))
   for 役 in usable_役:
-    update(*役)
+    d, rn = dist_from_hand(hand, *役)
+    d = min(d, 13)
+    dist[d].append((rn, 役))
   min_dist = min(i for i, x in enumerate(dist) if x)
   return dist[:min_dist + 2]
 

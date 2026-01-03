@@ -32,7 +32,7 @@ def main(args: Args):
           print()
           print(tree.next[tile])
         case 'leaf':
-          print(' - ' + ' '.join(sorted(str(gbmj.__dict__[s[0]](*s[1:])[0]) for s in set().union(*(f.collect_leafs() for f in tree.next[tile].values())))))
+          print(' - ' + ' '.join(sorted(str(s[0]) for s in set().union(*(f.collect_leafs() for f in tree.next[tile].values())))))
 
 if __name__ == "__main__":
   main(Args().parse_args())
